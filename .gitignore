@@ -1,0 +1,6 @@
+report/*
+*.asv
+
+!report/images/
+!report/*.tex
+!report/*.pdf
