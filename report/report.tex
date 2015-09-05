@@ -244,6 +244,15 @@ end
         \begin{enumerate}
             \item 在\texttt{MALTAB}环境下，将路径设置到\texttt{process}文件夹下。对游戏区域的屏幕截图(灰度图像)\href{../process/graygroundtruth.jpg}{\texttt{graygroundtruth}}进行分割，提取所有图像分块。
 
+                先进行预处理：
+
+                \begin{minted}{matlab}
+%% load image and preprocess
+original = imread('graygroundtruth.jpg');
+image = double(original);
+image = image - 128;
+                \end{minted}
+
                 绘制水平竖直扫描线灰度均值如图\ref{fig:gray_mean}。
 
                 \begin{figure}[H]
@@ -255,16 +264,39 @@ end
 
                 周期如此明显，可以通过一些简单的运算直接获得块大小\texttt{(Wb,Hb)}、游戏区域位置信息\texttt{(Xs,Ys)}以及块数量\texttt{(Nc,Nr)}(而不需要进行傅里叶变换)。
 
-                \inputminted[firstline=7,lastline=33]{matlab}{../process/divide.m}
+                \begin{minted}{matlab}
+%% get block size and position of game region
+hor = mean(image,1);
+ver = mean(image,2);
+
+npeak = min(hor); % negative peak
+I = find(hor<0.9*npeak);
+I = sort(I);
+Xs = I(1);
+I = diff(I); % width between peaks
+I = I(I>30); % filter too small blocks
+Wb = mean(I)+1;
+Nc = length(I); % number of block columns
+
+npeak = min(ver); % negative peak
+I = find(ver<0.9*npeak);
+I = sort(I);
+Ys = I(1);
+I = diff(I); % width between peaks
+I = I(I>30); % filter too small blocks
+Hb = mean(I)+1;
+Nr = length(I); % number of block rows
+                \end{minted}
                 \begingroup
                     \captionof{listing}{\texttt{divide.m}获取块大小以及位置信息}
                 \endgroup
 
-                然后按尺寸获取各图像块，效果良好：
+                然后按得到的尺寸\texttt{(Xs=25, Ys=35, Wb=80, Hb=100, Nc=12, Nr=7)}获取各图像块，效果良好：
 
                 \begin{listing}[H]
-                    \inputminted[firstline=36,lastline=46]{matlab}{../process/divide.m}
+                    \inputminted[firstline=20,lastline=31]{matlab}{../process/divide.m}
                     \caption{\texttt{divide.m}获取所有块}
+                    \label{code:all_blocks}
                 \end{listing}
 
                 \begin{figure}[H]
@@ -273,6 +305,344 @@ end
                     \caption{图像分割效果}
                 \end{figure}
 
+            \item 对摄像头采集的图像(灰度图像)\href{../process/graycapture.jpg}{\texttt{graycapture}}，参考第1题要求进行处理。
+
+                摄像头采集的图像噪音明显增多，而且图像有小幅度的旋转。上一题使用的方法在这里完全不能获得正确结果。
+
+                另外，画面对比度较弱，使得横纵方向的周期性也不明显了。
+
+                考虑将其转化为二值图像(黑白图像)以增强周期性。
+
+                预处理：
+
+                \begin{minted}{matlab}
+%% load image and preprocess
+original = imread('graycapture.jpg');
+image = im2bw(original,0.8);   % convert to bw image
+image = double(image);
+                \end{minted}
+
+                \begin{figure}[H]
+                    \centering
+                    \includegraphics[width=0.7\textwidth]{graycapture_bw}
+                    \caption{\texttt{graycapture}预处理成黑白图像}
+                    \label{fig:graycapture_bw}
+                \end{figure}
+
+                再观察扫描线均值：
+
+                \begin{figure}[H]
+                    \centering
+                    \includegraphics[width=0.7\textwidth]{bw_mean}
+                    \caption{扫描线黑白均值}
+                    \label{fig:bw_mean}
+                \end{figure}
+
+                周期性已经比较明显，块分界线(图\ref{fig:graycapture_bw}中的黑色直线)在扫描线黑白均值\ref{fig:bw_mean}中体现为\textbf{尖锐的低谷}。
+
+                考虑用\texttt{findpeaks}函数获取这些低谷的位置，测试出性能较好的参数如下：
+
+                \begin{table}[H]
+                    \caption{\texttt{finkpeaks}函数参数设置}
+                    \centering
+                
+                    \begin{tabular}{c|c|l}
+                    \hline
+                
+                    \hline
+                    \textbf{选项} & \textbf{值} & \textbf{作用} \\
+                    \hline
+                        \texttt{MinPeakProminence} & 0.3 & 筛选出较突出(尖锐)的峰值 \\
+                    \hline
+                        \texttt{MaxPeakWidth} & 10 & 去除过宽的峰值 \\
+                    \hline
+                        \texttt{MinPeakDistance} & 30 & 去除距离过近的峰值 \\
+                    \hline
+                
+                    \hline
+                    \end{tabular}
+                \end{table}
+
+                找到的峰值如下：
+
+                \begin{figure}[H]
+                    \centering
+                    \includegraphics[width=0.7\textwidth]{findpeaks}
+                    \caption{\texttt{findpeaks}检测峰值(纵坐标为原数据的相反数)}
+                \end{figure}
+
+                可见效果相当好，免去繁杂的傅里叶变换(若不能得当地处理噪声，傅里叶变换得到的结果不是特别准确)。
+
+                \begin{minted}{matlab}
+%% get block size and position of game region
+hor = mean(image,1);
+ver = mean(image,2);
+
+[~,I] = findpeaks(-hor,'MinPeakProminence',0.3,'MaxPeakWidth',10,'MinPeakDistance',30);
+[~,J] = findpeaks(-ver,'MinPeakProminence',0.3,'MaxPeakWidth',10,'MinPeakDistance',30);
+Xs = I(1); Ys = J(1);
+Wb = mean(diff(I)); Nc = length(I) - 1;
+Hb = mean(diff(J)); Nr = length(J) - 1;
+                \end{minted}
+
+                得到结果\texttt{(Xs=28, Ys=24, Wb=53.33, Hb=66.86, Nc=12, Nr=7)}，仍然运行代码\ref{code:all_blocks}绘制获取到的所有块。
+
+                \begin{figure}[H]
+                    \centering
+                    \includegraphics[width=\textwidth]{all_blocks_2}
+                    \caption{利用二值图像法得到的图像分割效果}
+                \end{figure}
+
+                分割效果很好。若使用\textbf{二值图像法}重新对第一题的\texttt{graygroundtruth}进行处理，得到的尺寸参数为\texttt{(Xs=25, Ys=35, Wb=80, Hb=100, Nc=12, Nr=7)}，与使用第一题方法得到的结果完全相同。\textbf{可见二值图像法对干净图像以及摄像头采集图像均有良好的性能。}
+
+                \textbf{二值图像法}利用黑白图像的强对比度增强了图像的周期性，便于后续提取尺寸信息；若不转化为黑白图像，直接傅里叶变换可以看到基波频率附近有许多能量也很高的噪声频率分量，对识别基波频率的准确度有巨大影响。\textbf{二值图像法}虽然丢失了图像的细节，但增强了对分块影响最大的周期性，因此\textbf{二值图像法}用于分块不失为一种优越的方法。
+
+            \item 在第2题基础上，计算所有图像分块的两两相似性，选出最相似的十对图像块。
+
+                \begin{enumerate}
+                    \item \textbf{高通滤波}：利用\texttt{imfilter}函数对图像进行高通滤波提取纹理特征。
+
+                        \begin{minted}{matlab}
+% ...
+
+hp = [-0.3,-0.3,-0.3;
+      -0.3, 0.5,-0.3;
+      -0.3,-0.3,-0.3];     % construct high pass filter
+  
+N = length(blocks);
+for i = 1:N
+    im1 = imfilter(double(blocks{i})-128,hp);
+    im1 = (im1-min(min(im1)))/(max(max(im1))-min(min(im1)))*255;
+
+% ...
+                        \end{minted}
+
+                        \begin{figure}[H]
+                            \centering
+                            \includegraphics[width=\textwidth]{highpass}
+                            \caption{高通滤波提取纹理特征}
+                            \label{fig:highpass}
+                        \end{figure}
+
+                    \item \textbf{计算两图像相似度}：匹配滤波。
+
+                        \begin{listing}[H]
+                            \inputminted{matlab}{../process/similarity.m}
+                            \caption{\texttt{similarity.m}}
+                        \end{listing}
+
+                    \item \textbf{两两计算相似度并排序}：二重循环暴力实现。
+
+                        \inputminted{matlab}{../process/similarsort.m}
+                        \begingroup
+                            \captionof{listing}{\texttt{similarsort.m}}
+                        \endgroup
+
+                        \texttt{尽量使各图像块的灰度值均匀地分布在\texttt{0}的两侧(-128~127)，这样在做相似度运算时，正负相消使得结果更准确了。}
+
+                \end{enumerate}
+
+                分别用\texttt{graygroundtruth}和\texttt{graycapture}测试，按相似度排序后，相似度走势曲线如图\ref{fig:similarity}。(两个\texttt{match\_map}分别存在\\
+                \href{../process/graygroundtruth_match_map.mat}{\texttt{graygroundtruth\_match\_map.mat}}和\href{../process/graycapture_match_map.mat}{\texttt{graycapture\_match\_map.mat}}中)
+
+                \begin{figure}[H]
+                    \centering
+                    \includegraphics[width=0.7\textwidth]{similarity}
+                    \caption{相似度走势曲线}
+                    \label{fig:similarity}
+                \end{figure}
+
+                \begin{itemize}
+                    \item 对于屏幕截图\texttt{graygroundtruth}，相同两块的相似度几乎均为\texttt{1}，而不同两块的相似度明显较低(低于\texttt{0.8})；
+                    \item 对于摄像头采集图像\texttt{graycapture}，相似度曲线几乎是连续的，但在\texttt{Similarity=0.88}附近也出现了明显的拐点。
+                \end{itemize}
+
+                找出\texttt{graycapture}中相似度最高的十对图像块：
+
+                \begin{minted}{matlab}
+figure;
+
+for i = 1:10
+    subplot('position',[0.1+(i-1)*0.08,0.55,0.08,0.1]);
+    imshow(blocks{match_map2(i,1)}); title(num2str(match_map2(i,3)));
+    subplot('position',[0.1+(i-1)*0.08,0.35,0.08,0.1]);
+    imshow(blocks{match_map2(i,2)});
+end
+                \end{minted}
+
+                \begin{figure}[H]
+                    \centering
+                    \includegraphics[width=\textwidth]{similarity10}
+                    \caption{相似度最高的十对图像块}
+                    \label{fig:similarity10}
+                \end{figure}
+
+                相似度最高的十对图像块确实是相同的图像块。
+
+            \item 在第3题的基础上，找出相似度最大却不是同一种精灵的十对图像块。
+
+                首先需手动标定各位置的精灵类别：
+
+                \begin{table}[h]
+                    \caption{精灵种类对应表(人脑识别)}
+                    \label{tab:pokemon}
+                    \centering
+                
+                    \begin{tabular}{c|c}
+                    \hline
+                
+                    \hline
+                    \textbf{序号} & \textbf{精灵} \\
+                    \hline
+                        1 & 小锯鳄 \\
+                        2 & 大针蜂 \\
+                        3 & 水精灵 \\
+                        4 & 喵喵 \\
+                        5 & 蚊香蛙 \\
+                        6 & 尼多兰 \\
+                        7 & 小火马 \\
+                        8 & 芭瓢虫 \\
+                        9 & 菊草叶 \\
+                        10 & 巴大蝴 \\
+                        11 & 杰尼龟 \\
+                        12 & 墨海马 \\
+                        13 & 绿毛虫 \\
+                        14 & 妙蛙种子 \\
+                        15 & 小海狮 \\
+                        16 & 波波 \\
+                        17 & 小火龙 \\
+                        18 & 火精灵 \\
+                        19 & 卡蒂狗 \\
+                    \hline
+                
+                    \hline
+                    \end{tabular}
+                \end{table}
+
+                \begin{listing}[H]
+                    \begin{minted}{matlab}
+kind = [1,  2,  1,  3,  4,  5,  6,  7,  8,  9,  9,  10;
+        11, 3,  10, 12, 10, 13, 8,  14, 9,  15, 16, 8 ;
+        17, 18, 9,  15, 12, 11, 6,  12, 2,  6,  17, 11;
+        12, 18, 8,  12, 2,  8,  6,  3,  6,  11, 12, 17;
+        16, 2,  14, 4,  18, 9,  18, 9,  13, 7,  12, 3 ;
+        17, 8,  19, 17, 1,  19, 17, 7,  4,  13, 7,  8 ;
+        13, 8,  6,  9,  4,  5,  10, 1,  13, 9,  12, 13;];
+                    \end{minted}
+                    \caption{手动标定精灵种类}
+                    \label{code:classify_manually}
+                \end{listing}
+
+                找出十对不同但相似度最高的图像块：
+
+                \begin{minted}{matlab}
+figure;
+count = 0;
+kindt = kind.';
+
+for i = 1:size(match_map2,1)
+    if kindt(match_map2(i,1)) ~= kindt(match_map2(i,2))
+        count = count + 1;
+        subplot('position',[0.1+(count-1)*0.08,0.55,0.08,0.1]);
+        imshow(blocks{match_map2(i,1)}); title(num2str(match_map2(i,3)));
+        subplot('position',[0.1+(count-1)*0.08,0.35,0.08,0.1]);
+        imshow(blocks{match_map2(i,2)});
+        xlabel(['index:',num2str(i)]);
+        if count == 10
+            break
+        end
+    end
+end
+                \end{minted}
+
+                \begin{figure}[H]
+                    \centering
+                    \includegraphics[width=\textwidth]{mistakes10}
+                    \caption{不同块最相似前十名}
+                    \label{fig:mistakes10}
+                \end{figure}
+
+                图\ref{fig:mistakes10}在每对图像块下方标注了它们在排序后\texttt{match\_map2}中的位置，这说明并非从某一位置开始起，后面的图像块均是不同块，至少在相似度\texttt{(0.89,0.91)}这一区间内，正确和错误的判断掺杂在了一起，这表明\textbf{摄像头采集图像的噪音使得算法可能发生误判}。而屏幕截图很少出现这样的问题。
+
+                图\ref{fig:mistakes10}的结果和主观感受部分符合，惊人地发现前十名误判中有\texttt{90\%}是\textbf{尼多兰}和\textbf{喵喵}，原因可能是轮廓较像且摄像头拍摄模糊(高通滤波使得细节丢失了)。
+
+                \textbf{既然高通滤波丢失了一些细节信息，那么不做高通滤波，直接做相似度计算，结果如何呢？}对代码稍作修改，重复上述过程得到：
+
+                \begin{figure}[H]
+                    \centering
+                    \includegraphics[width=\textwidth]{mistakes10-nohighpass}
+                    \caption{不做高通滤波直接利用相似度匹配的误判前十名}
+                    \label{fig:mistakes10_nohighpass}
+                \end{figure}
+
+                不做高通滤波使得重要的纹理特征被掩盖了，细节喧宾夺主，在相似度高达\texttt{0.99}时就发生了误判。这说明\textbf{高通滤波是至关重要的一步}。
+
+                这也从另一方面说明了：\textbf{使用不同的高通滤波器也对判断结果有影响}。
+
+            \item 在第3题基础上，将游戏区域映射为索引值的数组，并列出索引值和图像分块的对照关系表。
+
+                在上一题中，已经手动做过这一步(表\ref{tab:pokemon}以及代码\ref{code:classify_manually})，现用程序实现，比较结果。
+
+                分类函数\texttt{classify}：
+
+                \inputminted{matlab}{../process/classify.m}
+                \begingroup
+                    \captionof{listing}{\texttt{classify.m}}
+                \endgroup
+
+                算法核心为以下几点：
+
+                \begin{itemize}
+                    \item 维护\texttt{isclassified}向量，长度为\texttt{N}(要分类元素总数)，每个位置存储对应元素当前的类别，尚未分类用\texttt{0}表示；
+                    \item 设定阈值\texttt{threshold}，只对相似度高于阈值的\texttt{Pair}进行分类操作；
+                    \item 具体分类时，若当前\texttt{Pair}的两个元素均未分类，则开辟新的类别；若两元素之一已分类，则将另一元素也加入该分类；若两元素已分至同一类别，则跳过；若两元素已分至不同类别，则将两类别合并；
+                    \item 高于阈值的\texttt{Pair}全部处理完仍有元素未分类，则对未分类的元素遍历，寻找其相似度最高的分类添加。
+                \end{itemize}
+
+                根据图\ref{fig:similarity}可确定合适的阈值：
+
+                \begin{minted}{matlab}
+>> category1 = classify(match_map1,0.9,84);
+>> category2 = classify(match_map2,0.92,84);
+                \end{minted}
+
+                分别对\texttt{graygroundtruth}和\texttt{graycapture}分类的结果均为\textbf{19个类别}。以\texttt{graycapture}为例可视化：
+
+                \begin{minted}{matlab}
+figure;
+
+for i = 1:length(category2)
+    subplot(5,5,i);
+    C = category2{i};
+    imshow(blocks{C(1)});
+    title(['#',num2str(i),' Counts: ',num2str(length(C))]);
+end
+                \end{minted}
+
+                \begin{figure}[H]
+                    \centering
+                    \includegraphics[width=0.8\textwidth]{category}
+                    \caption{对\texttt{graycapture}自动分类结果}
+                    \label{fig:category}
+                \end{figure}
+
+                与手动分类结果完全一致，正确率\texttt{100\%}。
+
+                至此，可以得到游戏区域的\texttt{mtx}矩阵：
+
+                \begin{minted}{matlab}
+mtx = zeros(Nc,Nr);
+
+for i = 1:length(category2)
+    mtx(category2{i}) = i;  % rowwise index
+end
+
+mtx = mtx.';
+                \end{minted}
+
+            \item 在上述工作基础上，设计实现一个模拟的自动连连看。对摄像头采集的图像(灰度图像)\texttt{graycapture}进行分块并找出最相似的一对可消除分块后，将这图片上两个块的位置设为黑色或其他特定颜色(即模拟消除操作)，并将图片展示在\texttt{figure}上。然后继续找出下一对可消除的分块并模拟消除，直至消除所有的分块或找不到可消除的分块对。
+
+                
 
         \end{enumerate}
     

@@ -3,4 +3,4 @@ report/*
 
 !report/images/
 !report/*.tex
-!report/*.pdf
+#!report/*.pdf
