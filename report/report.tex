@@ -642,7 +642,80 @@ mtx = mtx.';
 
             \item 在上述工作基础上，设计实现一个模拟的自动连连看。对摄像头采集的图像(灰度图像)\texttt{graycapture}进行分块并找出最相似的一对可消除分块后，将这图片上两个块的位置设为黑色或其他特定颜色(即模拟消除操作)，并将图片展示在\texttt{figure}上。然后继续找出下一对可消除的分块并模拟消除，直至消除所有的分块或找不到可消除的分块对。
 
-                
+                首先对图像进行处理，获得游戏区域的\texttt{mtx}矩阵：
+
+                \begin{listing}[H]
+                    \inputminted[firstline=1,lastline=22]{matlab}{../process/mocklink.m}
+                    \caption{\texttt{mocklink.m(1-22, get mtx)}}
+                \end{listing}
+
+                和之前的\href{../linkgame/canlink.m}{\texttt{canlink.m}}不同，这里进行模拟连接时不仅要考虑是否可以连接，我们还希望\textbf{函数能够返回相应的连接路径}，进而绘制出连接路径，这样模拟连接的过程更真实。
+
+                对\texttt{canlink}函数稍作修改得到\texttt{findpath}函数：
+
+                \inputminted{matlab}{../process/findpath.m}
+                \begingroup
+                    \captionof{listing}{\texttt{findpath.m}}
+                \endgroup
+
+                相应地，将\texttt{omg.m}修改成为\href{../process/solvelinkgame.m}{\texttt{solvelinkgame.m}}，增加了\texttt{connections}返回值，存储每次消除时连线的结点：
+
+                \inputminted{matlab}{../process/solvelinkgame.m}
+                \begingroup
+                    \captionof{listing}{\texttt{solvelinkgame.m}}
+                \endgroup
+
+                最后是比较繁琐的可视化过程：
+
+                \inputminted[firstline=22,lastline=74]{matlab}{../process/mocklink.m}
+                \begingroup
+                    \captionof{listing}{\texttt{mocklink.m(22-74, visualization)}}
+                \endgroup
+
+                连线为宽度为3像素的\textbf{黑线段}，消去的块用白色背景表示。
+
+                由于连线可能超出图像块的区域范围，需要特殊处理使得绘制出的连线仍在图片范围内。
+
+                最终能够模拟消除能够正常工作，消除过程以动画形式保存为根目录下的\href{../mocklink.gif}{\texttt{mocklink.gif}}。
+
+                以下取若干帧展示效果：
+
+                \begin{figure}[H]
+                    \centering
+                    \begin{subfigure}{0.5\textwidth}
+                        \centering
+                        \includegraphics[width=0.8\linewidth]{mocklink1}
+                    \end{subfigure}%
+                    \begin{subfigure}{0.5\textwidth}
+                        \centering
+                        \includegraphics[width=0.8\linewidth]{mocklink2}
+                    \end{subfigure}
+                    \begin{subfigure}{0.5\textwidth}
+                        \centering
+                        \includegraphics[width=0.8\linewidth]{mocklink3}
+                    \end{subfigure}%
+                    \begin{subfigure}{0.5\textwidth}
+                        \centering
+                        \includegraphics[width=0.8\linewidth]{mocklink4}
+                    \end{subfigure}
+                    \begin{subfigure}{0.5\textwidth}
+                        \centering
+                        \includegraphics[width=0.8\linewidth]{mocklink5}
+                    \end{subfigure}%
+                    \begin{subfigure}{0.5\textwidth}
+                        \centering
+                        \includegraphics[width=0.8\linewidth]{mocklink6}
+                    \end{subfigure}
+                    \begin{subfigure}{0.5\textwidth}
+                        \centering
+                        \includegraphics[width=0.8\linewidth]{mocklink7}
+                    \end{subfigure}%
+                    \begin{subfigure}{0.5\textwidth}
+                        \centering
+                        \includegraphics[width=0.8\linewidth]{mocklink8}
+                    \end{subfigure}
+                    \caption{模拟消除过程(部分)}
+                \end{figure}
 
         \end{enumerate}
     

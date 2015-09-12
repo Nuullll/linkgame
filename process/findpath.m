@@ -1,27 +1,34 @@
-function bool = canlink(mtx,x1,y1,x2,y2)
-% return 1 if these two blocks can be linked!
+function [canlink,nodesX,nodesY] = findpath(mtx,x1,y1,x2,y2)
+% Update function CANLINK to FINDPATH, returning path nodes as well
+% return [1,nodesX,nodesY] if these two blocks can be linked
+    
+    nodesX = [];
+    nodesY = [];
+
     if mtx(x1,y1) ~= mtx(x2,y2) || ~mtx(x1,y1) || ~mtx(x2,y2)
-        bool = 0;
+        canlink = 0;
         return
     end
-
-    if canlink1(mtx,x1,y1,x2,y2)
-        bool = 1;
+    
+    [canlink,nodesX,nodesY] = findpath1(mtx,x1,y1,x2,y2);
+    if canlink
         return
     end
-
+    
     % grow the cross of origin
     [I,J] = adjcross(mtx,x1,y1);
 
     for n = 1:length(I)
         i = I(n); j = J(n);
-        if canlink1(mtx,i,j,x2,y2)
-            bool = 1;
+        [canlink,nodesX,nodesY] = findpath1(mtx,i,j,x2,y2);
+        if canlink
+            nodesX = [x1,nodesX];
+            nodesY = [y1,nodesY];
             return
         end
     end
 
-    bool = 0;
+    canlink = 0;
 
 end
 
@@ -48,13 +55,21 @@ function [I,J] = adjcross(mtx,x,y)
 end
 
 
-function bool = canlink0(mtx,x1,y1,x2,y2)
-% return 1 if it's a direct link (no turns)
+function [bool,nodesX,nodesY] = findpath0(mtx,x1,y1,x2,y2)
+% return [1,nodesX,nodesY] if it's a direct link (no turns)
+% return [0,~,~] otherwise
+
+    nodesX = [];
+    nodesY = [];
 
     if x1 == x2 && ~any(mtx(x1,min(y1,y2)+1:max(y1,y2)-1))
         bool = 1;
+        nodesX = [x1,x2];
+        nodesY = [y1,y2];
     elseif y1 == y2 && ~any(mtx(min(x1,x2)+1:max(x1,x2)-1,y1))
         bool = 1;
+        nodesX = [x1,x2];
+        nodesY = [y1,y2];
     else
         bool = 0;
     end
@@ -62,11 +77,12 @@ function bool = canlink0(mtx,x1,y1,x2,y2)
 end
 
 
-function bool = canlink1(mtx,x1,y1,x2,y2)
-% return 1 if the turns of link path <= 1
+function [bool,nodesX,nodesY] = findpath1(mtx,x1,y1,x2,y2)
+% return [1,nodesX,nodesY] if the turns of link path <= 1
+% return [0,~,~] otherwise
 
-    if canlink0(mtx,x1,y1,x2,y2)
-        bool = 1;
+    [bool,nodesX,nodesY] = findpath0(mtx,x1,y1,x2,y2);
+    if bool
         return
     end
 
@@ -75,12 +91,16 @@ function bool = canlink1(mtx,x1,y1,x2,y2)
 
     for n = 1:length(I)
         i = I(n); j = J(n);
-        if canlink0(mtx,i,j,x2,y2)
-            bool = 1;
+        [bool,nodesX,nodesY] = findpath0(mtx,i,j,x2,y2);
+        if bool
+            nodesX = [x1,nodesX];
+            nodesY = [y1,nodesY];
             return
         end
     end
 
     bool = 0;
+    nodesX = [];
+    nodesY = [];
 
 end
