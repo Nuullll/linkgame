@@ -438,7 +438,7 @@ for i = 1:N
                             \captionof{listing}{\texttt{similarsort.m}}
                         \endgroup
 
-                        \texttt{尽量使各图像块的灰度值均匀地分布在\texttt{0}的两侧(-128~127)，这样在做相似度运算时，正负相消使得结果更准确了。}
+                        \textbf{尽量使各图像块的灰度值均匀地分布在\texttt{0}的两侧(-128,127)，这样在做相似度运算时，正负相消使得结果更准确了。}
 
                 \end{enumerate}
 
@@ -684,42 +684,65 @@ mtx = mtx.';
                     \centering
                     \begin{subfigure}{0.5\textwidth}
                         \centering
-                        \includegraphics[width=0.8\linewidth]{mocklink1}
+                        \includegraphics[width=0.77\linewidth]{mocklink1}
                     \end{subfigure}%
                     \begin{subfigure}{0.5\textwidth}
                         \centering
-                        \includegraphics[width=0.8\linewidth]{mocklink2}
+                        \includegraphics[width=0.77\linewidth]{mocklink2}
                     \end{subfigure}
                     \begin{subfigure}{0.5\textwidth}
                         \centering
-                        \includegraphics[width=0.8\linewidth]{mocklink3}
+                        \includegraphics[width=0.77\linewidth]{mocklink3}
                     \end{subfigure}%
                     \begin{subfigure}{0.5\textwidth}
                         \centering
-                        \includegraphics[width=0.8\linewidth]{mocklink4}
+                        \includegraphics[width=0.77\linewidth]{mocklink4}
                     \end{subfigure}
                     \begin{subfigure}{0.5\textwidth}
                         \centering
-                        \includegraphics[width=0.8\linewidth]{mocklink5}
+                        \includegraphics[width=0.77\linewidth]{mocklink5}
                     \end{subfigure}%
                     \begin{subfigure}{0.5\textwidth}
                         \centering
-                        \includegraphics[width=0.8\linewidth]{mocklink6}
+                        \includegraphics[width=0.77\linewidth]{mocklink6}
                     \end{subfigure}
                     \begin{subfigure}{0.5\textwidth}
                         \centering
-                        \includegraphics[width=0.8\linewidth]{mocklink7}
+                        \includegraphics[width=0.77\linewidth]{mocklink7}
                     \end{subfigure}%
                     \begin{subfigure}{0.5\textwidth}
                         \centering
-                        \includegraphics[width=0.8\linewidth]{mocklink8}
+                        \includegraphics[width=0.77\linewidth]{mocklink8}
                     \end{subfigure}
                     \caption{模拟消除过程(部分)}
                 \end{figure}
+
+            \item 未能挤出时间完成选做两题Orz
 
         \end{enumerate}
     
     % section 攻克别人的连连看 (end)
 
+    \newpage
+    \section{实验总结} % (fold)
+    \label{sec:实验总结}
+
+        \begin{itemize}
+            \item 在判断可连性时，使用画十字的方法确实比较简单易行；
+            \item 采用\texttt{canlink}->\texttt{canlink1}->\texttt{canlink0}这样类似递归的调用可以提高代码重用率，且具有较低的复杂度；
+            \item 在实现\texttt{omg.m}时，将人脑的思路用代码实现不失为一种好方法，即先消除相邻的块，再在广义边界上寻找可消除的块，这样可以消除大部分图像块，最后再对剩余的块进行比较暴力的配对；这样比一上来就暴力配对效率高了不少(不过对于图像块较少的情形，效率提升并不明显)；
+            \item 图像分块没用采用傅里叶变换进行分析，而是通过将图像转换为黑白图像增强周期性信息后，再利用\texttt{findpeaks}函数及其丰富的限制选项对黑白图像的横纵均值进行分析，简单有效；而傅里叶的基频分量很可能淹没在较高能量的噪声分量中；
+            \item 不转为黑白图像直接\texttt{findpeaks}对\texttt{graygroundtruth}效果还不错，但处理较模糊且带有些微旋转量的\texttt{graycapture}，转黑白这一步的重要性是不言而喻的；
+            \item 分块完毕后相似度匹配前的高通滤波十分必要，没有做高通滤波的图\ref{fig:mistakes10_nohighpass}证明高通滤波有效地提取了各图像块独特的纹理信息；
+            \item 两图像块进行相关运算时(匹配滤波)，最好要使图像块各点取值均匀地分布在正负半轴(-128,127)，这样计算过程中正负相抵有助于更好地分辨相同块和不同块；若取值范围为(0,255)再做相关，那么得到的相似度均偏高，且不能很好地区分相同块和不同块；
+            \item 利用相似度阈值进行聚类是比较自然的思路，事实上\texttt{MATLAB}应该自带类似的函数如\texttt{classify}等；
+            \item 暴力地进行两两相似度运算效率较低，可考虑改进为做相似度运算的同时进行聚类操作，这样避免了重复运算；
+            \item \texttt{MATLAB}中的矩阵遍历顺序为列优先，预先考虑到这一点可以避免代码中出现不必要的转置(我们主观往往乐于倾向行优先遍历)；
+            \item 可视化过程要考虑画线是否超出边界的较繁琐的问题，表达式较复杂，其实不难；
+            \item 总体而言，连连看大作业还是很有趣；可惜没来得及完成炫酷的选做题；
+            \item 另外，很钦佩\texttt{construct.p}的原创者，能够构造出几乎保证任意消除顺序均能完全消除的游戏(观测结果)。
+        \end{itemize}
+    
+    % section 实验总结 (end)
 
 \end{document}
